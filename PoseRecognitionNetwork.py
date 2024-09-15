@@ -11,6 +11,10 @@ class PoseRecognitionNetwork(nn.Module):
         # Load pretrained LSTM weights if a path is provided
         if pretrained_lstm_path is not None:
             self._load_pretrained_lstm(pretrained_lstm_path)
+
+        # Freeze LSTM weights
+        for param in self.lstm.parameters():
+            param.requires_grad = False  # Prevent LSTM weights from being updated
         
         # Linear layer for mapping LSTM output to the embedding vector
         self.fc = nn.Linear(hidden_size, embedding_size)
@@ -28,16 +32,25 @@ class PoseRecognitionNetwork(nn.Module):
 
 
     def forward(self, x):
-        # LSTM layer - output features and hidden state
-        lstm_out, _ = self.lstm(x)  # LSTM output (batch_size, seq_len, hidden_size)
-        
-        # Take the last output of the LSTM (seq_len -> -1 for last)
-        lstm_out_last = lstm_out[:, -1, :]  # (batch_size, hidden_size)
-        
-        # Fully connected layer to produce the embedding
-        embedding = self.fc(lstm_out_last)  # (batch_size, embedding_size)
-        
+        # x is of shape (batch_size, seq_len, 17, 2)
+        batch_size, seq_len, _, _ = x.shape
+        x = x.view(batch_size, seq_len, -1)  # Flatten the last two dimensions (17, 2) into 34
+        h_lstm, _ = self.lstm(x)  # LSTM output
+        h_lstm_last = h_lstm[:, -1, :]  # Take the last output of the LSTM
+        embedding = self.fc(h_lstm_last)
         return embedding
+
+
+        # # LSTM layer - output features and hidden state
+        # lstm_out, _ = self.lstm(x)  # LSTM output (batch_size, seq_len, hidden_size)
+        
+        # # Take the last output of the LSTM (seq_len -> -1 for last)
+        # lstm_out_last = lstm_out[:, -1, :]  # (batch_size, hidden_size)
+        
+        # # Fully connected layer to produce the embedding
+        # embedding = self.fc(lstm_out_last)  # (batch_size, embedding_size)
+        
+        # return embedding
 
 # Example usage:
 if __name__ == "__main__":
